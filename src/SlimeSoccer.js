@@ -176,6 +176,8 @@ const SlimeSoccer = () => {
         oscillator.start(ctx.currentTime);
         oscillator.stop(ctx.currentTime + 0.08);
         break;
+      default:
+        break;
     }
   }, [soundEnabled]);
 

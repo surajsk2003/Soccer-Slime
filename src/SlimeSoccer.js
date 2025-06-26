@@ -446,7 +446,7 @@ const SlimeSoccer = () => {
         }
       }
     });
-  }, [playerMode, updateAI]);
+  }, [playerMode, updateAI, touchControls.left, touchControls.right, touchControls.jump, touchControls.grab]);
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;

@@ -84,6 +84,7 @@ const SlimeSoccer = () => {
   const animationRef = useRef(null);
   const keysRef = useRef({});
   const lastFrameTimeRef = useRef(0);
+  const audioContextRef = useRef(null);
   
   const [gameMode, setGameMode] = useState(null);
   const [playerMode, setPlayerMode] = useState(null);
@@ -94,6 +95,7 @@ const SlimeSoccer = () => {
   const [winner, setWinner] = useState(null);
   const [isMobile, setIsMobile] = useState(false);
   const [touchControls, setTouchControls] = useState({ left: false, right: false, jump: false, grab: false });
+  const [soundEnabled, setSoundEnabled] = useState(true);
   
   const gameStateRef = useRef({
     leftSlime: {
@@ -111,6 +113,72 @@ const SlimeSoccer = () => {
     }
   });
 
+  // Sound system
+  const initAudio = () => {
+    if (!audioContextRef.current) {
+      audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
+    }
+  };
+
+  const playSound = (type) => {
+    if (!soundEnabled || !audioContextRef.current) return;
+    
+    const ctx = audioContextRef.current;
+    const oscillator = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(ctx.destination);
+    
+    switch (type) {
+      case 'ballHit':
+        oscillator.frequency.setValueAtTime(200, ctx.currentTime);
+        oscillator.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.1);
+        gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
+        oscillator.start(ctx.currentTime);
+        oscillator.stop(ctx.currentTime + 0.1);
+        break;
+      case 'jump':
+        oscillator.frequency.setValueAtTime(300, ctx.currentTime);
+        oscillator.frequency.exponentialRampToValueAtTime(500, ctx.currentTime + 0.15);
+        gainNode.gain.setValueAtTime(0.2, ctx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+        oscillator.start(ctx.currentTime);
+        oscillator.stop(ctx.currentTime + 0.15);
+        break;
+      case 'grab':
+        oscillator.frequency.setValueAtTime(150, ctx.currentTime);
+        gainNode.gain.setValueAtTime(0.15, ctx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.05);
+        oscillator.start(ctx.currentTime);
+        oscillator.stop(ctx.currentTime + 0.05);
+        break;
+      case 'goal':
+        // Goal celebration sound
+        for (let i = 0; i < 3; i++) {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.frequency.setValueAtTime(400 + i * 100, ctx.currentTime + i * 0.1);
+          gain.gain.setValueAtTime(0.3, ctx.currentTime + i * 0.1);
+          gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + i * 0.1 + 0.2);
+          osc.start(ctx.currentTime + i * 0.1);
+          osc.stop(ctx.currentTime + i * 0.1 + 0.2);
+        }
+        break;
+      case 'bounce':
+        oscillator.frequency.setValueAtTime(150, ctx.currentTime);
+        oscillator.frequency.exponentialRampToValueAtTime(80, ctx.currentTime + 0.08);
+        gainNode.gain.setValueAtTime(0.1, ctx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.08);
+        oscillator.start(ctx.currentTime);
+        oscillator.stop(ctx.currentTime + 0.08);
+        break;
+    }
+  };
+
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.target.tagName === 'INPUT') return;
@@ -124,9 +192,21 @@ const SlimeSoccer = () => {
     };
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
+    
+    // Initialize audio on first user interaction
+    const initAudioOnInteraction = () => {
+      initAudio();
+      document.removeEventListener('click', initAudioOnInteraction);
+      document.removeEventListener('keydown', initAudioOnInteraction);
+    };
+    document.addEventListener('click', initAudioOnInteraction);
+    document.addEventListener('keydown', initAudioOnInteraction);
+    
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
+      document.removeEventListener('click', initAudioOnInteraction);
+      document.removeEventListener('keydown', initAudioOnInteraction);
     };
   }, []);
 
@@ -288,6 +368,7 @@ const SlimeSoccer = () => {
                        difficulty === 'medium' ? SLIME_JUMP_POWER : 
                        SLIME_JUMP_POWER * 1.1;
       ai.vy = jumpPower;
+      playSound('jump');
     }
   }, [playerMode, timeLeft, difficulty]);
 
@@ -299,20 +380,29 @@ const SlimeSoccer = () => {
       if (keys['a']) state.leftSlime.vx = -SLIME_SPEED;
       else if (keys['d']) state.leftSlime.vx = SLIME_SPEED;
       else state.leftSlime.vx = 0;
-      if (keys['w'] && state.leftSlime.y >= GAME_HEIGHT - GROUND_HEIGHT - 1) state.leftSlime.vy = SLIME_JUMP_POWER;
+      if (keys['w'] && state.leftSlime.y >= GAME_HEIGHT - GROUND_HEIGHT - 1) {
+        state.leftSlime.vy = SLIME_JUMP_POWER;
+        playSound('jump');
+      }
       state.leftSlime.isGrabbing = keys['s'];
       
       if (keys['arrowleft']) state.rightSlime.vx = -SLIME_SPEED;
       else if (keys['arrowright']) state.rightSlime.vx = SLIME_SPEED;
       else state.rightSlime.vx = 0;
-      if (keys['arrowup'] && state.rightSlime.y >= GAME_HEIGHT - GROUND_HEIGHT - 1) state.rightSlime.vy = SLIME_JUMP_POWER;
+      if (keys['arrowup'] && state.rightSlime.y >= GAME_HEIGHT - GROUND_HEIGHT - 1) {
+        state.rightSlime.vy = SLIME_JUMP_POWER;
+        playSound('jump');
+      }
       state.rightSlime.isGrabbing = keys['arrowdown'];
     } else {
       // Mobile touch controls or keyboard
       if (keys['arrowleft'] || touchControls.left) state.rightSlime.vx = -SLIME_SPEED;
       else if (keys['arrowright'] || touchControls.right) state.rightSlime.vx = SLIME_SPEED;
       else state.rightSlime.vx = 0;
-      if ((keys['arrowup'] || touchControls.jump) && state.rightSlime.y >= GAME_HEIGHT - GROUND_HEIGHT - 1) state.rightSlime.vy = SLIME_JUMP_POWER;
+      if ((keys['arrowup'] || touchControls.jump) && state.rightSlime.y >= GAME_HEIGHT - GROUND_HEIGHT - 1) {
+        state.rightSlime.vy = SLIME_JUMP_POWER;
+        playSound('jump');
+      }
       state.rightSlime.isGrabbing = keys['arrowdown'] || touchControls.grab;
       updateAI();
     }
@@ -335,6 +425,7 @@ const SlimeSoccer = () => {
         slime.goalLineTime += 1/60;
         if (slime.goalLineTime >= 1) {
           setScore(prev => isLeftSlime ? { ...prev, right: prev.right + 1 } : { ...prev, left: prev.left + 1 });
+          playSound('goal');
           resetPositions();
         }
       } else {
@@ -371,6 +462,7 @@ const SlimeSoccer = () => {
         state.ball.grabAngle = 0;
         state.ball.grabAngularVelocity = 0;
         grabber.hasBall = false;
+        playSound('ballHit');
       }
     } else {
       state.ball.vy += GRAVITY;
@@ -382,25 +474,31 @@ const SlimeSoccer = () => {
     if (state.ball.x < BALL_RADIUS) {
       state.ball.x = BALL_RADIUS;
       state.ball.vx = -state.ball.vx * BALL_BOUNCE_DAMPING;
+      if (Math.abs(state.ball.vx) > 2) playSound('bounce');
     }
     if (state.ball.x > GAME_WIDTH - BALL_RADIUS) {
       state.ball.x = GAME_WIDTH - BALL_RADIUS;
       state.ball.vx = -state.ball.vx * BALL_BOUNCE_DAMPING;
+      if (Math.abs(state.ball.vx) > 2) playSound('bounce');
     }
     if (state.ball.y > GAME_HEIGHT - GROUND_HEIGHT - BALL_RADIUS) {
       state.ball.y = GAME_HEIGHT - GROUND_HEIGHT - BALL_RADIUS;
       state.ball.vy = -state.ball.vy * BALL_BOUNCE_DAMPING;
+      if (Math.abs(state.ball.vy) > 2) playSound('bounce');
     }
     if (state.ball.y < BALL_RADIUS) {
       state.ball.y = BALL_RADIUS;
       state.ball.vy = -state.ball.vy * BALL_BOUNCE_DAMPING;
+      if (Math.abs(state.ball.vy) > 2) playSound('bounce');
     }
     
     if (state.ball.x <= BALL_RADIUS && state.ball.y > GAME_HEIGHT - GROUND_HEIGHT - GOAL_HEIGHT) {
       setScore(prev => ({ ...prev, right: prev.right + 1 }));
+      playSound('goal');
       resetPositions();
     } else if (state.ball.x >= GAME_WIDTH - BALL_RADIUS && state.ball.y > GAME_HEIGHT - GROUND_HEIGHT - GOAL_HEIGHT) {
       setScore(prev => ({ ...prev, left: prev.left + 1 }));
+      playSound('goal');
       resetPositions();
     }
     
@@ -428,6 +526,7 @@ const SlimeSoccer = () => {
           state.ball.grabAngle = Math.atan2(dy, dx);
           state.ball.grabAngularVelocity = 0;
           slime.hasBall = true;
+          playSound('grab');
         } else if (!state.ball.grabbedBy) {
           const angle = Math.atan2(dy, dx);
           if (state.ball.y < slime.y || Math.abs(angle) < Math.PI * 0.5) {
@@ -442,6 +541,7 @@ const SlimeSoccer = () => {
               state.ball.vx *= scale;
               state.ball.vy *= scale;
             }
+            if (speed > 1) playSound('ballHit');
           }
         }
       }
@@ -775,6 +875,13 @@ const SlimeSoccer = () => {
             <div className="relative w-full mb-4">
               <div className="absolute -inset-2 bg-gradient-to-r from-blue-500/30 to-purple-500/30 rounded-2xl blur-xl"></div>
               <div className="relative bg-black/40 backdrop-blur-2xl px-8 py-6 rounded-2xl border border-white/20 flex justify-between items-center">
+                <button 
+                  onClick={() => setSoundEnabled(!soundEnabled)}
+                  className="absolute top-2 right-2 p-2 bg-gray-800/50 hover:bg-gray-700/50 rounded-lg border border-gray-600/30 transition-all duration-300"
+                  title={soundEnabled ? 'Mute sounds' : 'Enable sounds'}
+                >
+                  <span className="text-lg">{soundEnabled ? '🔊' : '🔇'}</span>
+                </button>
                 <div className="flex items-center gap-4">
                   <div className="w-6 h-6 bg-gradient-to-r from-cyan-400 to-cyan-600 rounded-full animate-pulse shadow-lg shadow-cyan-500/50"></div>
                   <span className="text-2xl font-black bg-gradient-to-r from-cyan-300 to-cyan-500 bg-clip-text text-transparent">

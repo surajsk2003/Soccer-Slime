@@ -1,0 +1,13 @@
+{
+  "files": {
+    "main.css": "/Soccer-Slime/static/css/main.ffe4ba8a.css",
+    "main.js": "/Soccer-Slime/static/js/main.a910569a.js",
+    "index.html": "/Soccer-Slime/index.html",
+    "main.ffe4ba8a.css.map": "/Soccer-Slime/static/css/main.ffe4ba8a.css.map",
+    "main.a910569a.js.map": "/Soccer-Slime/static/js/main.a910569a.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.ffe4ba8a.css",
+    "static/js/main.a910569a.js"
+  ]
+}

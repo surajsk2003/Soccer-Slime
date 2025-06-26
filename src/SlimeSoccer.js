@@ -120,7 +120,7 @@ const SlimeSoccer = () => {
     }
   };
 
-  const playSound = (type) => {
+  const playSound = useCallback((type) => {
     if (!soundEnabled || !audioContextRef.current) return;
     
     const ctx = audioContextRef.current;
@@ -177,7 +177,7 @@ const SlimeSoccer = () => {
         oscillator.stop(ctx.currentTime + 0.08);
         break;
     }
-  };
+  }, [soundEnabled]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -370,7 +370,7 @@ const SlimeSoccer = () => {
       ai.vy = jumpPower;
       playSound('jump');
     }
-  }, [playerMode, timeLeft, difficulty]);
+  }, [playerMode, timeLeft, difficulty, playSound]);
 
   const updatePhysics = useCallback(() => {
     const state = gameStateRef.current;
@@ -546,7 +546,7 @@ const SlimeSoccer = () => {
         }
       }
     });
-  }, [playerMode, updateAI, touchControls.left, touchControls.right, touchControls.jump, touchControls.grab]);
+  }, [playerMode, updateAI, touchControls.left, touchControls.right, touchControls.jump, touchControls.grab, playSound]);
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
